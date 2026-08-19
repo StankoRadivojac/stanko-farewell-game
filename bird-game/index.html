@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>VIRTUÁLNÍ ODCHYTÁVAČ 3000</title>
+
+  <!--  Font Press Start 2P -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Press Start 2P', cursive;
+      color: white;
+    }
+
+    /*  Načítací obrazovka */
+    #loadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+      color: #0f0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 18px;
+      text-align: center;
+      z-index: 1000;
+      animation: flicker 0.15s infinite alternate;
+    }
+
+    @keyframes flicker {
+      0% { opacity: 1; }
+      100% { opacity: 0.8; }
+    }
+
+    #loadingDots {
+      margin-top: 20px;
+      color: #ff0;
+      font-size: 14px;
+      letter-spacing: 2px;
+      animation: blinkDots 1s infinite;
+    }
+
+    @keyframes blinkDots {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+
+    canvas {
+      border: 4px solid #fff;
+      display: none;
+      background: url("background.png") no-repeat left center;
+      background-size: cover;
+    }
+
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 20px;
+    }
+
+    #sendButton {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 40px;
+      font-size: 18px;
+      background: #ff0;
+      border: 3px solid #000;
+      cursor: pointer;
+      display: none;
+      font-family: 'Press Start 2P', cursive;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 0 10px #ff0;
+      transition: all 0.15s ease;
+    }
+
+    #sendButton:hover {
+      transform: translate(-50%, -50%) scale(1.1);
+      box-shadow: 0 0 20px #fff;
+    }
+
+
+
+
+    /*  Efekt fade-out při přechodu */
+    .fade-out {
+      animation: fadeOut 1s forwards;
+    }
+
+    @keyframes fadeOut {
+      100% { opacity: 0; visibility: hidden; }
+    }
+  </style>
+</head>
+<body>
+  <!--  Načítací obrazovka -->
+  <div id="loadingScreen">
+    <div>Načítá se<br>VIRTUÁLNÍ ODCHYTÁVAČ 3000</div>
+    <div id="loadingDots">...</div>
+  </div>
+
+  <canvas id="gameCanvas" width="900" height="600"></canvas>
+  <div id="score">Zachráněno: 0</div>
+  <button id="sendButton">ÚSPĚŠNĚ DOKONČENO – VRÁTIT SE</button>
+
+  <!-- Zvuky -->
+  <audio id="hitSound" src="https://actions.google.com/sounds/v1/impacts/crash.ogg"></audio>
+  <audio id="catchSound" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+  <audio id="flySound" src="https://actions.google.com/sounds/v1/ambiences/birds_chirping.ogg"></audio>
+  <audio id="bootSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreElement = document.getElementById("score");
+    const sendButton = document.getElementById("sendButton");
+    const hitSound = document.getElementById("hitSound");
+    const catchSound = document.getElementById("catchSound");
+    const flySound = document.getElementById("flySound");
+    const bootSound = document.getElementById("bootSound");
+    const loadingScreen = document.getElementById("loadingScreen");
+
+    const handImg = new Image();
+    handImg.src = "hand.png";
+    const birdFlyImg = new Image();
+    birdFlyImg.src = "bird_fly.png";
+    const birdStunnedImg = new Image();
+    birdStunnedImg.src = "bird_stunned.png";
+
+    let birds = [];
+    let hand = { x: canvas.width / 2 - 40, y: canvas.height - 80, width: 80, height: 80 };
+    let score = 0;
+    let gameOver = false;
+
+    // Spuštění hry po "načítání"
+    window.addEventListener("load", () => {
+      bootSound.play();
+      setTimeout(() => {
+        loadingScreen.classList.add("fade-out");
+        setTimeout(() => {
+          loadingScreen.style.display = "none";
+          canvas.style.display = "block";
+          startGame();
+        }, 1000);
+      }, 3000);
+    });
+
+    function startGame() {
+      setInterval(spawnBird, 2000);
+      gameLoop();
+    }
+
+    function spawnBird() {
+      if (gameOver) return;
+      const fromLeft = Math.random() < 0.5;
+      const y = Math.random() * (canvas.height - 200) + 50;
+      const speed = 2 + Math.random() * 2;
+      birds.push({
+        x: fromLeft ? 0 : canvas.width,
+        y,
+        size: 40,
+        speedX: fromLeft ? speed : -speed,
+        state: "flying"
+      });
+    }
+
+    function drawHand() {
+      ctx.drawImage(handImg, hand.x, hand.y, hand.width, hand.height);
+    }
+
+    function drawBird(bird) {
+      if (bird.state === "flying") {
+        ctx.drawImage(birdFlyImg, bird.x - 20, bird.y - 20, bird.size, bird.size);
+      } else if (bird.state === "stunned" || bird.state === "caught") {
+        ctx.drawImage(birdStunnedImg, bird.x - 20, bird.y - 20, bird.size, bird.size);
+      }
+    }
+
+    function updateBirds() {
+      birds.forEach(bird => {
+        if (bird.state === "flying") {
+          bird.x += bird.speedX;
+
+          // náhodné omráčení
+          if (Math.random() < 0.002) {
+            bird.state = "stunned";
+            bird.speedX = 0;
+            bird.fallOffset = (Math.random() - 0.5) * 4;
+            bird.fallPhase = Math.random() * Math.PI * 2;
+            hitSound.currentTime = 0;
+            hitSound.play();
+          }
+
+          // náraz do kraje
+          if ((bird.speedX < 0 && bird.x <= 160) || (bird.speedX > 0 && bird.x >= canvas.width - 160)) {
+            bird.state = "stunned";
+            bird.speedX = 0;
+            bird.fallOffset = (Math.random() - 0.5) * 4;
+            bird.fallPhase = Math.random() * Math.PI * 2;
+            hitSound.currentTime = 0;
+            hitSound.play();
+          }
+
+        } else if (bird.state === "stunned") {
+          bird.y += 2;
+          bird.x += bird.fallOffset + Math.sin(bird.fallPhase + bird.y / 20) * 0.5;
+
+          if (
+            bird.y + bird.size >= hand.y &&
+            bird.x >= hand.x &&
+            bird.x <= hand.x + hand.width
+          ) {
+            bird.state = "caught";
+            score++;
+            scoreElement.textContent = "Zachráněno: " + score;
+            catchSound.currentTime = 0;
+            catchSound.play();
+
+            if (score >= 10) {
+              sendButton.style.display = "block";
+              gameOver = true;
+            }
+          }
+
+          if (bird.y > canvas.height) {
+            bird.state = "missed";
+          }
+        }
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawHand();
+      birds.forEach(drawBird);
+    }
+
+    function gameLoop() {
+      if (!gameOver) {
+        updateBirds();
+        draw();
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" && hand.x > 0) hand.x -= 20;
+      if (e.key === "ArrowRight" && hand.x + hand.width < canvas.width) hand.x += 20;
+    });
+
+    sendButton.addEventListener("click", () => {
+      flySound.currentTime = 0;
+      flySound.play();
+      sendButton.disabled = true;
+      sendButton.textContent = "ZAVÍRÁM OKNO...";
+      setTimeout(() => {
+        window.close();
+      }, 250);
+    });
+  </script>
+</body>
+</html>
