@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stanko – Farewell Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">THE LAST TICKET</div>
+        <h1>Stanko – Farewell Game</h1>
+      </div>
+      <button id="homeButton" class="ghost-button home-nav" type="button">Hlavní nabídka</button>
+    </header>
+
+    <section class="scene" aria-live="polite">
+      <div class="character-placeholder" aria-label="Stanko">
+        <img id="characterImage" src="assets/stanko-office.png" alt="Stanko" />
+      </div>
+
+      <div class="dialog-card">
+        <div class="speaker">Stanko</div>
+        <div id="dialogText" class="dialog-text"></div>
+      </div>
+
+      <div id="content" class="content"></div>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
